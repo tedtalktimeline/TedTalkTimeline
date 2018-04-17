@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<!-- https://bl.ocks.org/alandunning/274bf248fd0f362d64674920e85c1eb7 -->
+<style>
+    body {
+        background-color: #F1F3F3
+    }
+
+    .axis {
+        font: 15px sans-serif;
+    }
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #D4D8DA;
+        stroke-width: 1px;
+        shape-rendering: crispEdges;
+    }
+
+    .toolTip {
+        position: absolute;
+        display: none;
+        min-width: 80px;
+        height: auto;
+        background: none repeat scroll 0 0 #ffffff;
+        border: 1px solid #6F257F;
+        padding: 14px;
+        text-align: center;
+    }
+</style>
+<svg width="960" height="500"></svg>
+
+<body>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script>
+        var svg = d3.select("svg"),
+            margin = {
+                top: 20,
+                right: 20,
+                bottom: 100,
+                left: 150
+            },
+            width = +svg.attr("width") - margin.left - margin.right,
+            height = +svg.attr("height") - margin.top - margin.bottom;
+
+        var tooltip = d3.select("body").append("div").attr("class", "toolTip");
+
+        var x = d3.scaleBand().rangeRound([0, width]).padding(0.1),
+            y = d3.scaleLinear().rangeRound([height, 0]);
+
+        var colours = d3.scaleOrdinal()
+            .range(["#6F257F", "#CA0D59"]);
+
+        var g = svg.append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        var ratingData, JSONObject;
+
+        function transformData(data) {
+            var newData = [];
+            data.forEach(function (d) {
+                ratingData = d.ratings;
+                var JSONObject = eval('(' + ratingData + ')');
+                for (var i in JSONObject) {
+                    newData.push({
+                        title: d.title,
+                        description: d.description,
+                        rater_id: +JSONObject[i]["id"],
+                        rate_category: JSONObject[i]["name"],
+                        count: +JSONObject[i]["count"]
+                    });
+                }
+            });
+            return newData;
+        }
+
+        d3.csv("ted_main.csv", function (error, data) {
+            if (error) throw error;
+            var flatData = transformData(data);
+            filteredData = flatData.filter(function (d) {
+                return d.title == "Do schools kill creativity?";
+            });
+
+            x.domain(filteredData.map(function (d) {
+                return d.rate_category;
+            }));
+
+            y.domain([0, d3.max(filteredData, function (d) {
+                return d.count;
+            })]);
+
+            g.append("g")
+                .attr("class", "axis axis--x")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-65)");
+                
+            g.append("g")
+                .attr("class", "axis axis--y")
+                .call(d3.axisLeft(y).ticks(5).tickSizeInner([-width]))
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 75 - margin.left)
+                .attr("x", 0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .attr("fill", "#5D6971")
+                .text("No. of Ratings");
+
+            g.selectAll(".bar")
+                .data(filteredData)
+                .enter().append("rect")
+                .attr("x", function (d) {
+                    return x(d.rate_category);
+                })
+                .attr("y", function (d) {
+                    return y(d.count);
+                })
+                .attr("width", x.bandwidth())
+                .attr("height", function (d) {
+                    return height - y(d.count);
+                })
+                .attr("fill", function (d) {
+                    return colours(d.rate_category);
+                })
+                .on("mousemove", function (d) {
+                    tooltip
+                        .style("left", d3.event.pageX - 50 + "px")
+                        .style("top", d3.event.pageY - 70 + "px")
+                        .style("display", "inline-block")
+                        .html("raterId: " + (d.rater_id) + "<br>" + "Count: " + (d.count));
+                })
+                .on("mouseout", function (d) {
+                    tooltip.style("display", "none");
+                });
+        });
+    </script>
+</body>
